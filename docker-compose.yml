@@ -48,8 +48,6 @@ volumes:
     driver: ${VOLUMES_DRIVER}
   cassandra:
     driver: ${VOLUMES_DRIVER}
-  graylog:
-    driver: ${VOLUMES_DRIVER}
   docker-in-docker:
     driver: ${VOLUMES_DRIVER}
   react:
@@ -142,7 +140,6 @@ services:
           - INSTALL_FSWATCH=${WORKSPACE_INSTALL_FSWATCH}
           - INSTALL_AST=${WORKSPACE_INSTALL_AST}
           - INSTALL_YAML=${WORKSPACE_INSTALL_YAML}
-          - INSTALL_RDKAFKA=${WORKSPACE_INSTALL_RDKAFKA}
           - INSTALL_MAILPARSE=${WORKSPACE_INSTALL_MAILPARSE}
           - INSTALL_GIT_PROMPT=${WORKSPACE_INSTALL_GIT_PROMPT}
           - INSTALL_XMLRPC=${WORKSPACE_INSTALL_XMLRPC}
@@ -167,7 +164,6 @@ services:
           - INSTALL_LNAV=${WORKSPACE_INSTALL_LNAV}
           - INSTALL_PROTOC=${WORKSPACE_INSTALL_PROTOC}
           - INSTALL_PHPDECIMAL=${WORKSPACE_INSTALL_PHPDECIMAL}
-          - INSTALL_ZOOKEEPER=${WORKSPACE_INSTALL_ZOOKEEPER}
           - INSTALL_SSDB=${WORKSPACE_INSTALL_SSDB}
           - INSTALL_TRADER=${WORKSPACE_INSTALL_TRADER}
           - PROTOC_VERSION=${WORKSPACE_PROTOC_VERSION}
@@ -258,7 +254,6 @@ services:
           - INSTALL_APCU=${PHP_FPM_INSTALL_APCU}
           - INSTALL_CACHETOOL=${PHP_FPM_INSTALL_CACHETOOL}
           - INSTALL_YAML=${PHP_FPM_INSTALL_YAML}
-          - INSTALL_RDKAFKA=${PHP_FPM_INSTALL_RDKAFKA}
           - INSTALL_GETTEXT=${PHP_FPM_INSTALL_GETTEXT}
           - INSTALL_ADDITIONAL_LOCALES=${PHP_FPM_INSTALL_ADDITIONAL_LOCALES}
           - INSTALL_MYSQL_CLIENT=${PHP_FPM_INSTALL_MYSQL_CLIENT}
@@ -274,7 +269,6 @@ services:
           - INSTALL_XHPROF=${PHP_FPM_INSTALL_XHPROF}
           - INSTALL_XMLRPC=${PHP_FPM_INSTALL_XMLRPC}
           - INSTALL_PHPDECIMAL=${PHP_FPM_INSTALL_PHPDECIMAL}
-          - INSTALL_ZOOKEEPER=${PHP_FPM_INSTALL_ZOOKEEPER}
           - INSTALL_SSDB=${PHP_FPM_INSTALL_SSDB}
           - INSTALL_TRADER=${PHP_FPM_INSTALL_TRADER}
           - INSTALL_EVENT=${PHP_FPM_INSTALL_EVENT}
@@ -431,7 +425,6 @@ services:
       ports:
         - "${NGINX_HOST_HTTP_PORT}:80"
         - "${NGINX_HOST_HTTPS_PORT}:443"
-        - "${VARNISH_BACKEND_PORT}:81"
       depends_on:
         - php-fpm
       networks:
@@ -457,7 +450,6 @@ services:
       ports:
         - "${OPENRESTY_HOST_HTTP_PORT}:80"
         - "${OPENRESTY_HOST_HTTPS_PORT}:443"
-        - "${VARNISH_BACKEND_PORT}:81"
       depends_on:
         - php-fpm
       networks:
@@ -759,17 +751,6 @@ services:
         - ${DATA_PATH_HOST}/ssdb:/data
       ports:
         - "${SSDB_PORT}:8888"
-      networks:
-        - backend
-
-### ZooKeeper #########################################
-    zookeeper:
-      build: ./zookeeper
-      volumes:
-        - ${DATA_PATH_HOST}/zookeeper/data:/data
-        - ${DATA_PATH_HOST}/zookeeper/datalog:/datalog
-      ports:
-        - "${ZOOKEEPER_PORT}:2181"
       networks:
         - backend
 
@@ -1141,57 +1122,6 @@ services:
         - frontend
         - backend
 
-### Selenium ###############################################
-    selenium:
-      build: ./selenium
-      ports:
-        - "${SELENIUM_PORT}:4444"
-      volumes:
-        - /dev/shm:/dev/shm
-      networks:
-        - frontend
-
-### Varnish ##########################################
-    proxy:
-      container_name: proxy
-      build: ./varnish
-      expose:
-        - ${VARNISH_PORT}
-      environment:
-        - VARNISH_CONFIG=${VARNISH_CONFIG}
-        - CACHE_SIZE=${VARNISH_PROXY1_CACHE_SIZE}
-        - VARNISHD_PARAMS=${VARNISHD_PARAMS}
-        - VARNISH_PORT=${VARNISH_PORT}
-        - BACKEND_HOST=${VARNISH_PROXY1_BACKEND_HOST}
-        - BACKEND_PORT=${VARNISH_BACKEND_PORT}
-        - VARNISH_SERVER=${VARNISH_PROXY1_SERVER}
-      ports:
-        - "${VARNISH_PORT}:${VARNISH_PORT}"
-      links:
-        - workspace
-      networks:
-        - frontend
-
-    proxy2:
-      container_name: proxy2
-      build: ./varnish
-      expose:
-        - ${VARNISH_PORT}
-      environment:
-        - VARNISH_CONFIG=${VARNISH_CONFIG}
-        - CACHE_SIZE=${VARNISH_PROXY2_CACHE_SIZE}
-        - VARNISHD_PARAMS=${VARNISHD_PARAMS}
-        - VARNISH_PORT=${VARNISH_PORT}
-        - BACKEND_HOST=${VARNISH_PROXY2_BACKEND_HOST}
-        - BACKEND_PORT=${VARNISH_BACKEND_PORT}
-        - VARNISH_SERVER=${VARNISH_PROXY2_SERVER}
-      ports:
-        - "${VARNISH_PORT}:${VARNISH_PORT}"
-      links:
-        - workspace
-      networks:
-        - frontend
-
 ### HAProxy ####################################
     haproxy:
       build: ./haproxy
@@ -1219,47 +1149,6 @@ services:
         - frontend
         - backend
 
-### Grafana ################################################
-    grafana:
-      build:
-        context: ./grafana
-      volumes:
-        - ${DATA_PATH_HOST}/grafana:/var/lib/grafana
-      ports:
-        - "${GRAFANA_PORT}:3000"
-      networks:
-        - backend
-
-### Graylog #######################################
-    graylog:
-      build: ./graylog
-      environment:
-        - GRAYLOG_PASSWORD_SECRET=${GRAYLOG_PASSWORD}
-        - GRAYLOG_ROOT_PASSWORD_SHA2=${GRAYLOG_SHA256_PASSWORD}
-        - GRAYLOG_HTTP_EXTERNAL_URI=http://127.0.0.1:${GRAYLOG_PORT}/
-      links:
-        - mongo
-        - elasticsearch
-      depends_on:
-        - mongo
-        - elasticsearch
-      ports:
-        # Graylog web interface and REST API
-        - ${GRAYLOG_PORT}:9000
-        # Syslog TCP
-        - ${GRAYLOG_SYSLOG_TCP_PORT}:514
-        # Syslog UDP
-        - ${GRAYLOG_SYSLOG_UDP_PORT}:514/udp
-        # GELF TCP
-        - ${GRAYLOG_GELF_TCP_PORT}:12201
-        # GELF UDP
-        - ${GRAYLOG_GELF_UDP_PORT}:12201/udp
-      user: graylog
-      volumes:
-        - ${DATA_PATH_HOST}/graylog:/usr/share/graylog/data
-      networks:
-        - backend
-
 ### Laravel Echo Server #######################################
     laravel-echo-server:
       build:
@@ -1274,21 +1163,6 @@ services:
         - redis
       networks:
         - frontend
-        - backend
-
-### Solr ################################################
-    solr:
-      build:
-        context: ./solr
-        args:
-          - SOLR_VERSION=${SOLR_VERSION}
-          - SOLR_DATAIMPORTHANDLER_MYSQL=${SOLR_DATAIMPORTHANDLER_MYSQL}
-          - SOLR_DATAIMPORTHANDLER_MSSQL=${SOLR_DATAIMPORTHANDLER_MSSQL}
-      volumes:
-        - ${DATA_PATH_HOST}/solr:/opt/solr/server/solr/mycores
-      ports:
-        - "${SOLR_PORT}:8983"
-      networks:
         - backend
 
 ### Thumbor #########################################
@@ -1513,40 +1387,6 @@ services:
         dockerfile: Dockerfile.user
       command: ["sh", "-c", "echo \"build only\""]
 
-### IPython #########################################
-    ipython-controller:
-      build:
-        context: ./ipython
-        dockerfile: Dockerfile.controller
-      networks:
-        - backend
-      extra_hosts:
-        - "laradock-ipython:${LARADOCK_IPYTHON_CONTROLLER_IP}"
-      ports:
-        - "33327-33338:33327-33338"
-    ipython-engine:
-      build:
-        context: ./ipython
-        dockerfile: Dockerfile.engine
-      networks:
-        - backend
-      extra_hosts:
-        - "laradock-ipython:${LARADOCK_IPYTHON_CONTROLLER_IP}"
-
-### Docker-in-Docker ################################################
-    docker-in-docker:
-      image: docker:20.10-dind
-      environment:
-        DOCKER_TLS_SAN: DNS:docker-in-docker
-      privileged: true
-      volumes:
-        - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}
-        - docker-in-docker:/certs/client
-      expose:
-        - 2375
-      networks:
-        - backend
-
 ### NetData ################################################
     netdata:
       image: netdata/netdata:latest
@@ -1578,23 +1418,6 @@ services:
       depends_on:
         - redis
 
-### MongoWebUI ################################################
-    mongo-webui:
-      build:
-        context: ./mongo-webui
-      environment:
-        - ROOT_URL=${MONGO_WEBUI_ROOT_URL}
-        - MONGO_URL=${MONGO_WEBUI_MONGO_URL}
-        - INSTALL_MONGO=${MONGO_WEBUI_INSTALL_MONGO}
-      volumes:
-        - ${DATA_PATH_HOST}/mongo-webui:/data/db
-      ports:
-        - "${MONGO_WEBUI_PORT}:3000"
-      networks:
-        - backend
-      depends_on:
-        - mongo
-
 ### Metabase #################################################
     metabase:
       image: metabase/metabase:latest
@@ -1619,75 +1442,6 @@ services:
       depends_on:
         - workspace
 
-### IDE-THEIA ################################################
-    ide-theia:
-      build:
-        context: ./ide-theia
-      volumes:
-        - ${APP_CODE_PATH_HOST}:/home/project
-      ports:
-        - "${IDE_THEIA_PORT}:3000"
-      networks:
-        - backend
-
-### IDE-WEBIDE ################################################
-    ide-webide:
-      build:
-        context: ./ide-webide
-      volumes:
-        - ${DATA_PATH_HOST}/ide/webide/ide.db:/root/.coding-ide/ide.db
-      ports:
-        - "${IDE_WEBIDE_PORT}:8080"
-      networks:
-        - backend
-
-### IDE-CODIAD ################################################
-    ide-codiad:
-      build:
-        context: ./ide-codiad
-      environment:
-        - APP_CODE_PATH_CONTAINER=${APP_CODE_PATH_CONTAINER}
-        - TZ=${WORKSPACE_TIMEZONE}
-        - PGID=1000
-        - PUID=1000
-      volumes:
-        - /etc/localtime:/etc/localtime:ro
-        - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}
-        - ${DATA_PATH_HOST}/ide/codiad:/config
-      ports:
-        - "${IDE_CODIAD_PORT}:80"
-      networks:
-        - backend
-
-### IDE-ICECODER ################################################
-    ide-icecoder:
-      build:
-        context: ./ide-icecoder
-      environment:
-        - DOCUMENT_ROOT=${APP_CODE_PATH_CONTAINER}
-        - TZ=${WORKSPACE_TIMEZONE}
-        - PGID=1000
-        - PUID=1000
-      volumes:
-        - /etc/localtime:/etc/localtime:ro
-        - ${APP_CODE_PATH_HOST}:/home/laradock/ICEcoder/dev
-      ports:
-        - "${IDE_ICECODER_PORT}:8080"
-      networks:
-        - backend
-
-### DOCKER-REGISTRY ################################################
-    docker-registry:
-      build:
-        context: ./docker-registry
-      volumes:
-        - /etc/localtime:/etc/localtime:ro
-        - ${DATA_PATH_HOST}/docker-registry:/var/lib/registry
-      ports:
-        - "${DOCKER_REGISTRY_PORT}:5000"
-      networks:
-        - backend
-
 ### DOCKER-WEB-UI ################################################
     docker-web-ui:
       build:
@@ -1704,244 +1458,6 @@ services:
         - "${DOCKER_WEBUI_PORT}:80"
       networks:
         - frontend
-        - backend
-
-### MAILU ################################################
-    mailu:
-      image: mailu/admin:${MAILU_VERSION}
-      volumes:
-        - "${DATA_PATH_HOST}/mailu/data:/data"
-        - "${DATA_PATH_HOST}/mailu/dkim:/dkim"
-        - "${DATA_PATH_HOST}/mailu/webmail:/webmail"
-        - /var/run/docker.sock:/var/run/docker.sock:ro
-      depends_on:
-        - mailu-front
-        - mailu-imap
-        - mailu-smtp
-        - mailu-antispam
-        - mailu-antivirus
-        - mailu-webdav
-        - mailu-admin
-        - mailu-webmail
-        - mailu-fetchmail
-      command: ["sh", "-c", "echo ${MAILU_INIT_ADMIN_USERNAME}@${MAILU_DOMAIN} ${MAILU_INIT_ADMIN_PASSWORD} ;python manage.py advertise ; python manage.py db upgrade ; python manage.py admin ${MAILU_INIT_ADMIN_USERNAME} ${MAILU_DOMAIN} ${MAILU_INIT_ADMIN_PASSWORD} || true;sed -i -- \"s/= Off/= On/g\" /webmail/_data_/_default_/configs/config.ini || true;if grep -Fq \"registration_link_url\" /webmail/_data_/_default_/configs/config.ini;then echo Already set!;else echo \"\" >> /webmail/_data_/_default_/configs/config.ini; echo \"[login]\" >> /webmail/_data_/_default_/configs/config.ini;echo \"registration_link_url = '${MAILU_WEBSITE}${MAILU_WEB_ADMIN}/ui/user/signup'\" >> /webmail/_data_/_default_/configs/config.ini;fi"]
-      networks:
-        - backend
-    mailu-front:
-      image: mailu/nginx:${MAILU_VERSION}
-      environment:
-        - ADMIN=${MAILU_ADMIN}
-        - WEB_ADMIN=${MAILU_WEB_ADMIN}
-        - WEB_WEBMAIL=${MAILU_WEB_WEBMAIL}
-        - WEBDAV=${MAILU_WEBDAV}
-        - HOSTNAMES=${MAILU_HOSTNAMES}
-        - TLS_FLAVOR=${MAILU_TLS_FLAVOR}
-        - MESSAGE_SIZE_LIMIT=${MAILU_MESSAGE_SIZE_LIMIT}
-      ports:
-        - "${MAILU_HTTP_PORT}:80"
-        - "${MAILU_HTTPS_PORT}:443"
-        - "110:110"
-        - "143:143"
-        - "993:993"
-        - "995:995"
-        - "25:25"
-        - "465:465"
-        - "587:587"
-      volumes:
-        - "${DATA_PATH_HOST}/mailu/certs:/certs"
-      networks:
-        backend:
-          aliases:
-            - front
-    mailu-imap:
-      image: mailu/dovecot:${MAILU_VERSION}
-      environment:
-        - DOMAIN=${MAILU_DOMAIN}
-        - HOSTNAMES=${MAILU_HOSTNAMES}
-        - POSTMASTER=${MAILU_POSTMASTER}
-        - WEBMAIL=${MAILU_WEBMAIL}
-        - RECIPIENT_DELIMITER=${MAILU_RECIPIENT_DELIMITER}
-      volumes:
-        - "${DATA_PATH_HOST}/mailu/data:/data"
-        - "${DATA_PATH_HOST}/mailu/mail:/mail"
-        - "${DATA_PATH_HOST}/mailu/overrides:/overrides"
-      depends_on:
-        - mailu-front
-      networks:
-        backend:
-          aliases:
-            - imap
-    mailu-smtp:
-      image: mailu/postfix:${MAILU_VERSION}
-      environment:
-        - DOMAIN=${MAILU_DOMAIN}
-        - HOSTNAMES=${MAILU_HOSTNAMES}
-        - RELAYHOST=${MAILU_RELAYHOST}
-        - RELAYNETS=${MAILU_RELAYNETS}
-        - RECIPIENT_DELIMITER=${MAILU_RECIPIENT_DELIMITER}
-        - MESSAGE_SIZE_LIMIT=${MAILU_MESSAGE_SIZE_LIMIT}
-      volumes:
-        - "${DATA_PATH_HOST}/mailu/data:/data"
-        - "${DATA_PATH_HOST}/mailu/overrides:/overrides"
-      depends_on:
-        - mailu-front
-      networks:
-        backend:
-          aliases:
-            - smtp
-    mailu-antispam:
-      image: mailu/rspamd:${MAILU_VERSION}
-      volumes:
-        - "${DATA_PATH_HOST}/mailu/filter:/var/lib/rspamd"
-        - "${DATA_PATH_HOST}/mailu/dkim:/dkim"
-        - "${DATA_PATH_HOST}/mailu/overrides/rspamd:/etc/rspamd/override.d"
-      depends_on:
-        - mailu-front
-      networks:
-        backend:
-          aliases:
-            - antispam
-    mailu-antivirus:
-      image: mailu/clamav:${MAILU_VERSION}
-      volumes:
-        - "${DATA_PATH_HOST}/mailu/filter:/data"
-      networks:
-        backend:
-          aliases:
-            - antivirus
-    mailu-webdav:
-      image: mailu/${MAILU_WEBDAV}:${MAILU_VERSION}
-      volumes:
-        - "${DATA_PATH_HOST}/mailu/dav:/data"
-      networks:
-        backend:
-          aliases:
-            - webdav
-    mailu-admin:
-      image: mailu/admin:${MAILU_VERSION}
-      environment:
-        - DOMAIN=${MAILU_DOMAIN}
-        - HOSTNAMES=${MAILU_HOSTNAMES}
-        - POSTMASTER=${MAILU_POSTMASTER}
-        - SECRET_KEY=${MAILU_SECRET_KEY}
-        - AUTH_RATELIMIT=${MAILU_AUTH_RATELIMIT}
-        - TLS_FLAVOR=${MAILU_TLS_FLAVOR}
-        - DISABLE_STATISTICS=${MAILU_DISABLE_STATISTICS}
-        - DMARC_RUA=${MAILU_DMARC_RUA}
-        - DMARC_RUF=${MAILU_DMARC_RUF}
-        - WELCOME=${MAILU_WELCOME}
-        - WELCOME_SUBJECT=${MAILU_WELCOME_SUBJECT}
-        - WELCOME_BODY=${MAILU_WELCOME_BODY}
-        - WEB_ADMIN=${MAILU_WEB_ADMIN}
-        - WEB_WEBMAIL=${MAILU_WEB_WEBMAIL}
-        - WEBSITE=${MAILU_WEBSITE}
-        - WEBMAIL=${MAILU_WEBMAIL}
-        - SITENAME=${MAILU_SITENAME}
-        - PASSWORD_SCHEME=${MAILU_PASSWORD_SCHEME}
-        - RECAPTCHA_PUBLIC_KEY=${MAILU_RECAPTCHA_PUBLIC_KEY}
-        - RECAPTCHA_PRIVATE_KEY=${MAILU_RECAPTCHA_PRIVATE_KEY}
-      volumes:
-        - "${DATA_PATH_HOST}/mailu/data:/data"
-        - "${DATA_PATH_HOST}/mailu/dkim:/dkim"
-        - /var/run/docker.sock:/var/run/docker.sock:ro
-      depends_on:
-        - redis
-      networks:
-        backend:
-          aliases:
-            - admin
-    mailu-webmail:
-      image: "mailu/${MAILU_WEBMAIL}:${MAILU_VERSION}"
-      volumes:
-        - "${DATA_PATH_HOST}/mailu/webmail:/data"
-      networks:
-        backend:
-          aliases:
-            - webmail
-    mailu-fetchmail:
-      image: mailu/fetchmail:${MAILU_VERSION}
-      environment:
-        - FETCHMAIL_DELAY=${MAILU_FETCHMAIL_DELAY}
-      volumes:
-        - "${DATA_PATH_HOST}/mailu/data:/data"
-      networks:
-        backend:
-          aliases:
-            - fetchmail
-
-### TRAEFIK #########################################
-    traefik:
-      build:
-        context: ./traefik
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock
-        - ./traefik/data:/data
-      command:
-        - "--api"
-        - "--providers.docker.exposedbydefault=false"
-        - "--accesslog.filepath=/data/access.log"
-        # entrypoints
-        - "--entrypoints.http.address=:${TRAEFIK_HOST_HTTP_PORT}"
-        - "--entrypoints.http.http.redirections.entrypoint.to=https"
-        - "--entrypoints.https.address=:${TRAEFIK_HOST_HTTPS_PORT}"
-        - "--entrypoints.traefik.address=:${TRAEFIK_DASHBOARD_PORT}"
-        # certificatesresolvers
-        - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
-        - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
-        - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=http"
-      ports:
-        - "${TRAEFIK_HOST_HTTP_PORT}:${TRAEFIK_HOST_HTTP_PORT}"
-        - "${TRAEFIK_HOST_HTTPS_PORT}:${TRAEFIK_HOST_HTTPS_PORT}"
-        - "${TRAEFIK_DASHBOARD_PORT}:${TRAEFIK_DASHBOARD_PORT}"
-      networks:
-        - frontend
-        - backend
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.traefik.rule=Host(`${ACME_DOMAIN}`)"
-        - "traefik.http.routers.traefik.entrypoints=traefik"
-        - "traefik.http.routers.traefik.service=api@internal"
-        - "traefik.http.routers.traefik.middlewares=access-auth"
-        - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
-        - "traefik.http.middlewares.access-auth.basicauth.realm=Login Required"
-        - "traefik.http.middlewares.access-auth.basicauth.users=${TRAEFIK_DASHBOARD_USER}"
-
-### MOSQUITTO Broker #########################################
-    mosquitto:
-      build:
-        context: ./mosquitto
-      volumes:
-        - ${DATA_PATH_HOST}/mosquitto/data:/mosquitto/data
-      ports:
-        - "${MOSQUITTO_PORT}:9001"
-      networks:
-        - frontend
-        - backend
-
-### COUCHDB ###################################################
-    couchdb:
-      build:
-        context: ./couchdb
-      volumes:
-        - ${DATA_PATH_HOST}/couchdb/data:/opt/couchdb/data
-      ports:
-        - "${COUCHDB_PORT}:5984"
-      networks:
-        - backend
-
-### Manticore Search ###########################################
-    manticore:
-      build:
-        context: ./manticore
-      volumes:
-        - ${MANTICORE_CONFIG_PATH}:/etc/sphinxsearch
-        - ${DATA_PATH_HOST}/manticore/data:/var/lib/manticore/data
-        - ${DATA_PATH_HOST}/manticore/log:/var/log/manticore
-      ports:
-        - "${MANTICORE_API_PORT}:9312"
-        - "${MANTICORE_SPHINXQL_PORT}:9306"
-        - "${MANTICORE_HTTP_PORT}:9308"
-      networks:
         - backend
 
 ### SONARQUBE ################################################
@@ -1967,21 +1483,6 @@ services:
         - backend
         - frontend
 
-### CONFLUENCE ################################################
-    confluence:
-      container_name: Confluence
-      image: atlassian/confluence-server:${CONFLUENCE_VERSION}
-      restart: always
-      ports:
-        - "${CONFLUENCE_HOST_HTTP_PORT}:8090"
-      networks:
-        - frontend
-        - backend
-      depends_on:
-        - postgres
-      volumes:
-        - ${DATA_PATH_HOST}/Confluence:/var/atlassian/application-data
-
 ### SWAGGER EDITOR ############################################
     swagger-editor:
       build: ./swagger-editor
@@ -2000,20 +1501,6 @@ services:
       networks:
         - backend
 
-### tomcat ####################################################
-    tomcat:
-      container_name: tomcat
-      image: tomcat:${TOMCAT_VERSION}
-      ports:
-        - "${TOMCAT_HOST_HTTP_PORT}:8080"
-      networks:
-        - frontend
-        - backend
-      volumes:
-        - ${DATA_PATH_HOST}/tomcat/webapps:/usr/local/tomcat/webapps
-        - ${DATA_PATH_HOST}/tomcat/logs:/usr/local/tomcat/logs
-      # restart: always
-
 ### react #####################################################
     react:
       build:
@@ -2030,48 +1517,3 @@ services:
       volumes:
         - ./react:/usr/src/app/react
         - /usr/src/app/react/node_modules
-
-### kafka ####################################################
-    kafka:
-      image: wurstmeister/kafka
-      ports:
-        - "9092:9092"
-      environment:
-        KAFKA_BROKER_ID: 1
-        KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
-        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092
-        KAFKA_MESSAGE_MAX_BYTES: 2000000
-        KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      volumes:
-        - ${DATA_PATH_HOST}/kafka:/kafka
-        - /var/run/docker.sock:/var/run/docker.sock
-      networks:
-        - backend
-
-### kafka-manager ###########################################
-    kafka-manager:
-      image: sheepkiller/kafka-manager
-      ports:
-        - 9020:9000
-      environment:
-        ZK_HOSTS: zookeeper:2181
-      networks:
-        - backend
-
-
-### tarantool ###########################################
-    tarantool:
-      build: ./tarantool
-      volumes:
-        - ${DATA_PATH_HOST}/tarantool:/var/lib/tarantool
-        - ./tarantool/lua:/opt/tarantool
-      ports:
-        - ${TARANTOOL_PORT}:3301
-      networks:
-        - backend
-    tarantool-admin:
-      build: ./tarantool-admin
-      ports:
-        - ${TARANTOOL_ADMIN_PORT}:80
-      networks:
-        - backend
