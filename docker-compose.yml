@@ -8,17 +8,11 @@ networks:
 volumes:
   mysql:
     driver: ${VOLUMES_DRIVER}
-  percona:
-    driver: ${VOLUMES_DRIVER}
-  mssql:
-    driver: ${VOLUMES_DRIVER}
   postgres:
     driver: ${VOLUMES_DRIVER}
   memcached:
     driver: ${VOLUMES_DRIVER}
   redis:
-    driver: ${VOLUMES_DRIVER}
-  neo4j:
     driver: ${VOLUMES_DRIVER}
   mariadb:
     driver: ${VOLUMES_DRIVER}
@@ -26,29 +20,13 @@ volumes:
     driver: ${VOLUMES_DRIVER}
   minio:
     driver: ${VOLUMES_DRIVER}
-  rethinkdb:
-    driver: ${VOLUMES_DRIVER}
   phpmyadmin:
     driver: ${VOLUMES_DRIVER}
   adminer:
     driver: ${VOLUMES_DRIVER}
-  aerospike:
-    driver: ${VOLUMES_DRIVER}
   caddy:
     driver: ${VOLUMES_DRIVER}
-  meilisearch:
-    driver: ${VOLUMES_DRIVER}
-  elasticsearch:
-    driver: ${VOLUMES_DRIVER}
-  mosquitto:
-    driver: ${VOLUMES_DRIVER}
-  confluence:
-    driver: ${VOLUMES_DRIVER}
   sonarqube:
-    driver: ${VOLUMES_DRIVER}
-  cassandra:
-    driver: ${VOLUMES_DRIVER}
-  docker-in-docker:
     driver: ${VOLUMES_DRIVER}
   react:
     driver: ${VOLUMES_DRIVER}
@@ -358,6 +336,7 @@ services:
         - "dockerhost:${DOCKER_HOST_IP}"
       networks:
         - backend
+
 ### Laravel Horizon ############################################
     laravel-horizon:
       build:
@@ -431,79 +410,6 @@ services:
         - frontend
         - backend
 
-### OpenResty Server #########################################
-    openresty:
-      build:
-        context: ./openresty
-        args:
-          - CHANGE_SOURCE=${CHANGE_SOURCE}
-          - PHP_UPSTREAM_CONTAINER=${OPENRESTY_PHP_UPSTREAM_CONTAINER}
-          - PHP_UPSTREAM_PORT=${OPENRESTY_PHP_UPSTREAM_PORT}
-          - http_proxy
-          - https_proxy
-          - no_proxy
-      volumes:
-        - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
-        - ${OPENRESTY_HOST_LOG_PATH}:/var/log/nginx
-        - ${OPENRESTY_SITES_PATH}:/etc/nginx/sites-available
-        - ${OPENRESTY_SSL_PATH}:/etc/nginx/ssl
-      ports:
-        - "${OPENRESTY_HOST_HTTP_PORT}:80"
-        - "${OPENRESTY_HOST_HTTPS_PORT}:443"
-      depends_on:
-        - php-fpm
-      networks:
-        - frontend
-        - backend
-
-### Blackfire ########################################
-    blackfire:
-      image: blackfire/blackfire
-      environment:
-        - BLACKFIRE_SERVER_ID=${BLACKFIRE_SERVER_ID}
-        - BLACKFIRE_SERVER_TOKEN=${BLACKFIRE_SERVER_TOKEN}
-      depends_on:
-        - php-fpm
-      networks:
-        - backend
-
-### Apache Server ########################################
-    apache2:
-      build:
-        context: ./apache2
-        args:
-          - PHP_UPSTREAM_CONTAINER=${APACHE_PHP_UPSTREAM_CONTAINER}
-          - PHP_UPSTREAM_PORT=${APACHE_PHP_UPSTREAM_PORT}
-          - PHP_UPSTREAM_TIMEOUT=${APACHE_PHP_UPSTREAM_TIMEOUT}
-          - DOCUMENT_ROOT=${APACHE_DOCUMENT_ROOT}
-          - APACHE_INSTALL_HTTP2=${APACHE_INSTALL_HTTP2}
-      volumes:
-        - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
-        - ${APACHE_HOST_LOG_PATH}:/var/log/apache2
-        - ${APACHE_SITES_PATH}:/etc/apache2/sites-available
-        - ${APACHE_SSL_PATH}:/etc/apache2/ssl
-      ports:
-        - "${APACHE_HOST_HTTP_PORT}:80"
-        - "${APACHE_HOST_HTTPS_PORT}:443"
-      depends_on:
-        - php-fpm
-      networks:
-        - frontend
-        - backend
-
-### HHVM #################################################
-    hhvm:
-      build: ./hhvm
-      volumes:
-        - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
-      expose:
-        - "9000"
-      depends_on:
-        - workspace
-      networks:
-        - frontend
-        - backend
-
 ### Minio ################################################
     minio:
       build: ./minio
@@ -537,39 +443,6 @@ services:
         - ${MYSQL_ENTRYPOINT_INITDB}:/docker-entrypoint-initdb.d
       ports:
         - "${MYSQL_PORT}:3306"
-      networks:
-        - backend
-
-### Percona ################################################
-    percona:
-      build:
-        context: ./percona
-      environment:
-        - MYSQL_DATABASE=${PERCONA_DATABASE}
-        - MYSQL_USER=${PERCONA_USER}
-        - MYSQL_PASSWORD=${PERCONA_PASSWORD}
-        - MYSQL_ROOT_PASSWORD=${PERCONA_ROOT_PASSWORD}
-      volumes:
-        - ${DATA_PATH_HOST}/percona:/var/lib/mysql
-        - ${PERCONA_ENTRYPOINT_INITDB}:/docker-entrypoint-initdb.d
-      ports:
-        - "${PERCONA_PORT}:3306"
-      networks:
-        - backend
-
-### MSSQL ################################################
-    mssql:
-      build:
-        context: ./mssql
-      environment:
-        - MSSQL_PID=Express
-        - MSSQL_DATABASE=${MSSQL_DATABASE}
-        - SA_PASSWORD=${MSSQL_PASSWORD}
-        - ACCEPT_EULA=Y
-      volumes:
-        - mssql:/var/opt/mssql
-      ports:
-        - "${MSSQL_PORT}:1433"
       networks:
         - backend
 
@@ -630,47 +503,6 @@ services:
       networks:
         - backend
 
-### PostgreSQL PostGis ###################################
-    postgres-postgis:
-      build:
-        context: ./postgres-postgis
-        args:
-          - POSTGIS_VERSION=${POSTGIS_VERSION}
-          - INSTALL_PGSQL_HTTP_FOR_POSTGIS13=${POSTGIS_INSTALL_PGSQL_HTTP_FOR_POSTGIS13}
-      volumes:
-        - ${DATA_PATH_HOST}/postgres:/var/lib/postgresql/data
-      ports:
-        - "${POSTGRES_PORT}:5432"
-      environment:
-        - POSTGRES_DB=${POSTGRES_DB}
-        - POSTGRES_USER=${POSTGRES_USER}
-        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      networks:
-        - backend
-
-### Neo4j ################################################
-    neo4j:
-      ports:
-          - '7401:7474'
-          - '7402:7687'
-      environment:
-          - NEO4J_AUTH=none
-      volumes:
-          - ${DATA_PATH_HOST}/neo4j/data:/data
-          - ${DATA_PATH_HOST}/neo4j/logs:/logs
-      image: 'neo4j:latest'
-      networks:
-        - backend
-### Nats ################################################
-    nats:
-      build: ./nats
-      ports:
-        - "${NATS_CLIENT_PORT}:4222"
-        - "${NATS_MONITORING_PORT}:6222"
-        - "${NATS_ROUTE_PORT}:8222"
-      networks:
-        - backend
-
 ### MongoDB ##############################################
     mongo:
       build: ./mongo
@@ -683,47 +515,6 @@ services:
         - ${DATA_PATH_HOST}/mongo:/data/db
         - ${DATA_PATH_HOST}/mongo_config:/data/configdb
       networks:
-        - backend
-
-### RethinkDB ##############################################
-    rethinkdb:
-      build: ./rethinkdb
-      ports:
-        - "${RETHINKDB_PORT}:8080"
-      volumes:
-        - ${DATA_PATH_HOST}/rethinkdb:/data/rethinkdb_data
-      networks:
-        - backend
-
-  ### ClickHouse #############################################
-    clickhouse:
-      build:
-        context: ./clickhouse
-        args:
-          - CLICKHOUSE_VERSION=${CLICKHOUSE_VERSION}
-          - CLICKHOUSE_GOSU_VERSION=${CLICKHOUSE_GOSU_VERSION}
-      environment:
-        - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-        - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      volumes:
-        - ${DATA_PATH_HOST}/clickhouse:/var/lib/clickhouse
-        - ${CLICKHOUSE_CUSTOM_CONFIG}:/etc/clickhouse-server/config.xml
-        - ${CLICKHOUSE_USERS_CUSTOM_CONFIG}:/etc/clickhouse-server/users.xml
-        - ${CLICKHOUSE_HOST_LOG_PATH}:/var/log/clickhouse
-        - ${CLICKHOUSE_ENTRYPOINT_INITDB}:/docker-entrypoint-initdb.d
-      links:
-        - workspace
-      ports:
-        - "${CLICKHOUSE_HTTP_PORT}:8123"
-        - "${CLICKHOUSE_CLIENT_PORT}:9000"
-        - "${CLICKHOUSE_NATIVE_PORT}:9009"
-      ulimits:
-        nproc: 65535
-        nofile:
-          soft: 262144
-          hard: 262144
-      networks:
-#        - frontend
         - backend
 
   ### Redis ################################################
@@ -744,33 +535,6 @@ services:
         - "${REDIS_CLUSTER_PORT_RANGE}:7000-7005"
       networks:
         - backend
-### SSDB ################################################
-    ssdb:
-      build: ./ssdb
-      volumes:
-        - ${DATA_PATH_HOST}/ssdb:/data
-      ports:
-        - "${SSDB_PORT}:8888"
-      networks:
-        - backend
-
-### Aerospike ##########################################
-    aerospike:
-      build: ./aerospike
-      volumes:
-        - workspace
-        - ${DATA_PATH_HOST}/aerospike:/opt/aerospike/data
-      ports:
-        - "${AEROSPIKE_SERVICE_PORT}:3000"
-        - "${AEROSPIKE_FABRIC_PORT}:3001"
-        - "${AEROSPIKE_HEARTBEAT_PORT}:3002"
-        - "${AEROSPIKE_INFO_PORT}:3003"
-      environment:
-        - STORAGE_GB=${AEROSPIKE_STORAGE_GB}
-        - MEM_GB=${AEROSPIKE_MEM_GB}
-        - NAMESPACE=${AEROSPIKE_NAMESPACE}
-      networks:
-        - backend
 
 ### Memcached ############################################
     memcached:
@@ -782,31 +546,6 @@ services:
       depends_on:
         - php-fpm
       networks:
-        - backend
-
-### Beanstalkd ###########################################
-    beanstalkd:
-      build: ./beanstalkd
-      ports:
-        - "${BEANSTALKD_HOST_PORT}:11300"
-      privileged: true
-      depends_on:
-        - php-fpm
-      networks:
-        - backend
-
-### SQS #############################################
-    sqs:
-      build: ./sqs
-      ports:
-        - "${SQS_NODE_HOST_PORT}:9324"
-        - "${SQS_MANAGEMENT_HTTP_HOST_PORT}:9325"
-      privileged: true
-      hostname: laradock-sqs
-      volumes:
-        - ${DATA_PATH_HOST}/sqs:/opt/custom
-      networks:
-        - frontend
         - backend
 
 ### RabbitMQ #############################################
@@ -844,81 +583,6 @@ services:
       hostname: laradock-mercure
       networks:
         - frontend
-        - backend
-
-### Cassandra ############################################
-    cassandra:
-      build: ./cassandra
-      ports:
-        - "${CASSANDRA_TRANSPORT_PORT_NUMBER}:7000"
-        - "${CASSANDRA_JMX_PORT_NUMBER}:7199"
-        - "${CASSANDRA_CQL_PORT_NUMBER}:9042"
-      privileged: true
-      environment:
-        - CASSANDRA_VERSION=${CASSANDRA_VERSION}
-        - CASSANDRA_TRANSPORT_PORT_NUMBER=${CASSANDRA_TRANSPORT_PORT_NUMBER}
-        - CASSANDRA_JMX_PORT_NUMBER=${CASSANDRA_JMX_PORT_NUMBER}
-        - CASSANDRA_CQL_PORT_NUMBER=${CASSANDRA_CQL_PORT_NUMBER}
-        - CASSANDRA_USER=${CASSANDRA_USER}
-        - CASSANDRA_PASSWORD_SEEDER=${CASSANDRA_PASSWORD_SEEDER}
-        - CASSANDRA_PASSWORD=${CASSANDRA_PASSWORD}
-        - CASSANDRA_NUM_TOKENS=${CASSANDRA_NUM_TOKENS}
-        - CASSANDRA_HOST=${CASSANDRA_HOST}
-        - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
-        - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
-        - CASSANDRA_ENDPOINT_SNITCH=${CASSANDRA_ENDPOINT_SNITCH}
-        - CASSANDRA_ENABLE_RPC=${CASSANDRA_ENABLE_RPC}
-        - CASSANDRA_DATACENTER=${CASSANDRA_DATACENTER}
-        - CASSANDRA_RACK=${CASSANDRA_RACK}
-      hostname: laradock-cassandra
-      volumes:
-        - ${DATA_PATH_HOST}/cassandra:/var/lib/cassandra
-      depends_on:
-        - php-fpm
-      networks:
-        - backend
-
-### Gearman ############################################
-    gearman:
-      build: ./gearman
-      ports:
-        - "${GEARMAN_PORT}:4730"
-      privileged: true
-      environment:
-        - GEARMAN_VERSION=${GEARMAN_VERSION}
-        - GEARMAN_VERBOSE=${GEARMAN_VERBOSE}
-        - GEARMAN_QUEUE_TYPE=${GEARMAN_QUEUE_TYPE}
-        - GEARMAN_THREADS=${GEARMAN_THREADS}
-        - GEARMAN_BACKLOG=${GEARMAN_BACKLOG}
-        - GEARMAN_FILE_DESCRIPTORS=${GEARMAN_FILE_DESCRIPTORS}
-        - GEARMAN_JOB_RETRIES=${GEARMAN_JOB_RETRIES}
-        - GEARMAN_ROUND_ROBIN=${GEARMAN_ROUND_ROBIN}
-        - GEARMAN_WORKER_WAKEUP=${GEARMAN_WORKER_WAKEUP}
-        - GEARMAN_KEEPALIVE=${GEARMAN_KEEPALIVE}
-        - GEARMAN_KEEPALIVE_IDLE=${GEARMAN_KEEPALIVE_IDLE}
-        - GEARMAN_KEEPALIVE_INTERVAL=${GEARMAN_KEEPALIVE_INTERVAL}
-        - GEARMAN_KEEPALIVE_COUNT=${GEARMAN_KEEPALIVE_COUNT}
-        - GEARMAN_MYSQL_HOST=${GEARMAN_MYSQL_HOST}
-        - GEARMAN_MYSQL_PORT=${GEARMAN_MYSQL_PORT}
-        - GEARMAN_MYSQL_USER=${GEARMAN_MYSQL_USER}
-        - GEARMAN_MYSQL_PASSWORD=${GEARMAN_MYSQL_PASSWORD}
-        - GEARMAN_MYSQL_PASSWORD_FILE=${GEARMAN_MYSQL_PASSWORD_FILE}
-        - GEARMAN_MYSQL_DB=${GEARMAN_MYSQL_DB}
-        - GEARMAN_MYSQL_TABLE=${GEARMAN_MYSQL_TABLE}
-      hostname: laradock-gearman
-      depends_on:
-        - php-fpm
-      networks:
-        - backend
-
-### Beanstalkd Console ###################################
-    beanstalkd-console:
-      build: ./beanstalkd-console
-      ports:
-        - "${BEANSTALKD_CONSOLE_HOST_PORT}:2080"
-      depends_on:
-        - beanstalkd
-      networks:
         - backend
 
 ### Caddy Server #########################################
@@ -991,94 +655,6 @@ services:
         - frontend
         - backend
 
-### MeiliSearch ##########################################
-    meilisearch:
-      image: getmeili/meilisearch:latest
-      volumes:
-        - ${DATA_PATH_HOST}/meilisearch:/data.ms
-      ports:
-        - "${MEILISEARCH_HOST_PORT}:7700"
-      networks:
-        - frontend
-        - backend
-
-### ElasticSearch ########################################
-    elasticsearch:
-      build:
-        context: ./elasticsearch
-        args:
-          - ELK_VERSION=${ELK_VERSION}
-      volumes:
-        - elasticsearch:/usr/share/elasticsearch/data
-      environment:
-        - cluster.name=laradock-cluster
-        - node.name=laradock-node
-        - bootstrap.memory_lock=true
-        - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-        - cluster.initial_master_nodes=laradock-node
-      ulimits:
-        memlock:
-          soft: -1
-          hard: -1
-        nofile:
-          soft: 65536
-          hard: 65536
-      ports:
-        - "${ELASTICSEARCH_HOST_HTTP_PORT}:9200"
-        - "${ELASTICSEARCH_HOST_TRANSPORT_PORT}:9300"
-      depends_on:
-        - php-fpm
-      networks:
-        - frontend
-        - backend
-
-### Logstash ##############################################
-    logstash:
-      build:
-        context: ./logstash
-        args:
-          - ELK_VERSION=${ELK_VERSION}
-      volumes:
-        - './logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml'
-        - './logstash/pipeline:/usr/share/logstash/pipeline'
-      ports:
-        - '5001:5001'
-      environment:
-        LS_JAVA_OPTS: '-Xmx1g -Xms1g'
-      env_file:
-        - .env
-      networks:
-        - frontend
-        - backend
-      depends_on:
-        - elasticsearch
-
-### Kibana ##############################################
-    kibana:
-      build:
-        context: ./kibana
-        args:
-          - ELK_VERSION=${ELK_VERSION}
-      ports:
-        - "${KIBANA_HTTP_PORT}:5601"
-      depends_on:
-        - elasticsearch
-      networks:
-        - frontend
-        - backend
-
-### Dejavu ##############################################
-    dejavu:
-      build:
-        context: ./dejavu
-      ports:
-        - "${DEJAVU_HTTP_PORT}:1358"
-      depends_on:
-        - elasticsearch
-      networks:
-        - frontend
-        - backend
-
 ### Certbot #########################################
     certbot:
       build:
@@ -1091,16 +667,6 @@ services:
         - EMAIL="fake.email@gmail.com"
       networks:
         - frontend
-
-### MailCatcher ################################################
-    mailcatcher:
-      build: ./mailcatcher
-      ports:
-        - "1025:1025"
-        - "1080:1080"
-      networks:
-        - frontend
-        - backend
 
 ### Mailhog ################################################
     mailhog:
@@ -1121,17 +687,6 @@ services:
       networks:
         - frontend
         - backend
-
-### HAProxy ####################################
-    haproxy:
-      build: ./haproxy
-      ports:
-        - "${HAPROXY_HOST_HTTP_PORT}:8085"
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock
-      links:
-        - proxy
-        - proxy2
 
 ### Jenkins ###################################################
     jenkins:
@@ -1281,16 +836,6 @@ services:
         - frontend
         - backend
 
-### AWS EB-CLI ################################################
-    aws:
-      build:
-        context: ./aws-eb-cli
-      volumes:
-        - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
-      depends_on:
-        - workspace
-      tty: true
-
 ### Portainer ################################################
     portainer:
       build:
@@ -1304,88 +849,6 @@ services:
         - 9010:9000
       networks:
         - backend
-
-### Gitlab ################################################
-    gitlab:
-      build:
-        context: ./gitlab
-      environment:
-        GITLAB_OMNIBUS_CONFIG: |
-          external_url '${GITLAB_DOMAIN_NAME}'
-          redis['enable'] = false
-          nginx['listen_https'] = false
-          nginx['listen_port'] = 80
-          nginx['custom_gitlab_server_config'] = "set_real_ip_from 172.0.0.0/8;\nreal_ip_header X-Real-IP;\nreal_ip_recursive on;"
-          postgresql['enable'] = false
-          gitlab_rails['trusted_proxies'] = ['caddy','nginx','apache2']
-          gitlab_rails['redis_host'] = 'redis'
-          gitlab_rails['redis_database'] = 8
-          gitlab_rails['db_host'] = '${GITLAB_POSTGRES_HOST}'
-          gitlab_rails['db_username'] = '${GITLAB_POSTGRES_USER}'
-          gitlab_rails['db_password'] = '${GITLAB_POSTGRES_PASSWORD}'
-          gitlab_rails['db_database'] = '${GITLAB_POSTGRES_DB}'
-          gitlab_rails['initial_root_password'] = '${GITLAB_ROOT_PASSWORD}'
-          gitlab_rails['gitlab_shell_ssh_port'] = ${GITLAB_HOST_SSH_PORT}
-      volumes:
-        - ${DATA_PATH_HOST}/gitlab/config:/etc/gitlab
-        - ${DATA_PATH_HOST}/gitlab/data:/var/opt/gitlab
-        - ${GITLAB_HOST_LOG_PATH}:/var/log/gitlab
-      ports:
-        - "${GITLAB_HOST_HTTP_PORT}:80"
-        - "${GITLAB_HOST_HTTPS_PORT}:443"
-        - "${GITLAB_HOST_SSH_PORT}:22"
-      networks:
-        - backend
-      depends_on:
-        - redis
-        - postgres
-    gitlab-runner:
-      image: gitlab/gitlab-runner:latest
-      environment:
-        - CI_SERVER_URL=${GITLAB_CI_SERVER_URL}
-        - REGISTRATION_TOKEN=${GITLAB_RUNNER_REGISTRATION_TOKEN}
-        - RUNNER_NAME=${COMPOSE_PROJECT_NAME}-runner
-        - REGISTER_NON_INTERACTIVE=${GITLAB_REGISTER_NON_INTERACTIVE}
-        - RUNNER_EXECUTOR=shell
-      volumes:
-        - ${DATA_PATH_HOST}/gitlab/runner:/etc/gitlab-runner
-        - /var/run/docker.sock:/var/run/docker.sock:rw
-      restart: always
-
-### JupyterHub #########################################
-    jupyterhub:
-      build:
-        context: ./jupyterhub
-      depends_on:
-        - postgres
-        - jupyterhub-user
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock:rw
-        - ${DATA_PATH_HOST}/jupyterhub/:/data
-        - ${JUPYTERHUB_CUSTOM_CONFIG}:/jupyterhub_config.py
-        - ${JUPYTERHUB_USER_DATA}:/user-data
-        - ${JUPYTERHUB_USER_LIST}:/userlist
-      networks:
-        - backend
-      ports:
-        - "${JUPYTERHUB_PORT}:80"
-      environment:
-        - TERM=xterm
-        - JUPYTERHUB_USER_DATA=${JUPYTERHUB_USER_DATA}
-        - JUPYTERHUB_POSTGRES_DB=${JUPYTERHUB_POSTGRES_DB}
-        - JUPYTERHUB_POSTGRES_USER=${JUPYTERHUB_POSTGRES_USER}
-        - JUPYTERHUB_POSTGRES_HOST=${JUPYTERHUB_POSTGRES_HOST}
-        - JUPYTERHUB_POSTGRES_PASSWORD=${JUPYTERHUB_POSTGRES_PASSWORD}
-        - JUPYTERHUB_OAUTH_CALLBACK_URL=${JUPYTERHUB_OAUTH_CALLBACK_URL}
-        - JUPYTERHUB_OAUTH_CLIENT_ID=${JUPYTERHUB_OAUTH_CLIENT_ID}
-        - JUPYTERHUB_OAUTH_CLIENT_SECRET=${JUPYTERHUB_OAUTH_CLIENT_SECRET}
-        - JUPYTERHUB_LOCAL_NOTEBOOK_IMAGE=${COMPOSE_PROJECT_NAME}_jupyterhub-user
-        - JUPYTERHUB_ENABLE_NVIDIA=${JUPYTERHUB_ENABLE_NVIDIA}
-    jupyterhub-user:
-      build:
-        context: ./jupyterhub
-        dockerfile: Dockerfile.user
-      command: ["sh", "-c", "echo \"build only\""]
 
 ### NetData ################################################
     netdata:
